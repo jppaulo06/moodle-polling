@@ -1,0 +1,93 @@
+import requests
+from bs4 import BeautifulSoup
+import os
+from dotenv import load_dotenv
+import time
+import json
+
+
+# =============================================================================
+#                                   CONFIGS
+# =============================================================================
+
+load_dotenv()
+COOKIES = {"MoodleSessionedisciplinas": os.getenv("MOODLE_SESSION")}
+COURSE_ID = os.getenv("COURSE_ID")
+URL = f"https://edisciplinas.usp.br/user/index.php?page=0&perpage=5000&contextid=0&id={COURSE_ID}&newcourse"
+if not os.path.exists("output"):
+    os.makedirs("output")
+
+
+# =============================================================================
+#                                   MAIN
+# =============================================================================
+
+def main() -> int:
+    it = 0
+    while True:
+        try:
+            update(it)
+        except Exception as e:
+            print(f"[ERROR] {e}")
+            return 1
+        time.sleep(5)
+        it += 1
+
+
+# =============================================================================
+#                                   HELPERS
+# =============================================================================
+
+def update(it):
+    response = requests.get(URL, cookies=COOKIES)
+    soup = BeautifulSoup(response.content, 'html5lib')
+    participant_count = int(soup.find("p", attrs={"data-region": "participant-count"}).text.split()[0])
+    table = soup.find("table", attrs={"id": "participants"})
+
+    obj = get_new_obj(table, participant_count)
+    print(obj)
+    save_as_json(obj, it)
+
+
+def get_new_obj(table, participant_count):
+    obj = []
+    for participant in range(1, participant_count):
+        name_tag = table.find("th", attrs = {"id": f"user-index-participants-117430_r{participant}_c1"})
+        last_login_tag = table.find("td", attrs = {"id": f"user-index-participants-117430_r{participant}_c4"})
+        if name_tag is not None:
+            participant_name = name_tag.text[2:]
+            last_login = last_login_tag.text
+            seconds = string_time_to_seconds(last_login)
+            obj.append({"name": participant_name, "seconds": seconds})
+        else:
+            raise Exception(f"[ERROR] Participant {participant} not found!")
+    return obj
+
+
+def save_as_json(obj, it):
+    with open(f"output/moodle_polling_{it}.json", "w") as outfile:
+        str_ = json.dump(obj, outfile, indent=4, separators=(',', ': '), ensure_ascii=False)
+
+
+def string_time_to_seconds(time: str) -> int:
+    seconds = 0
+    num = 0
+
+    for piece in time.split():
+        if piece.isnumeric():
+            num = int(piece)
+        else:
+            if piece == "dias":
+                seconds += num * 24 * 60 * 60
+            elif piece == "horas":
+                seconds += num * 60 * 60
+            elif piece == "minutos":
+                seconds += num * 60
+            elif piece == "segundos":
+                seconds += num
+
+    return seconds
+
+
+if __name__ == "__main__":
+    exit(main())
