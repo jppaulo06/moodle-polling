@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 import time
 import json
+import datetime
 
 
 # =============================================================================
@@ -23,16 +24,24 @@ if not os.path.exists("output"):
 #                                   MAIN
 # =============================================================================
 
-def main() -> int:
+def main():
     it = 0
     while True:
+
         try:
             print(f"[INFO] Updating: Iteration {it}")
             update(it)
+        except KeyboardInterrupt:
+            return 0
         except Exception as e:
             print(f"[ERROR] Could not update infos: {e}")
-            return 1
-        time.sleep(DELTA_TIME)
+            raise e
+
+        try:
+            time.sleep(DELTA_TIME)
+        except KeyboardInterrupt:
+            return 0
+
         it += 1
 
 
@@ -70,7 +79,8 @@ def get_new_obj(table, participant_count):
 
 
 def save_as_json(obj, it):
-    with open(f"output/moodle_polling_{it}.json", "w") as outfile:
+    file_name = "output/moodle-polling-{date:%d-%m-%Y_%H-%M-%S}_{it}.json".format(date=datetime.datetime.now(), it=it)
+    with open(file_name, "w") as outfile:
         json.dump(obj, outfile, indent=4, ensure_ascii=False)
 
 
@@ -93,4 +103,8 @@ def string_time_to_seconds(time: str) -> int:
 
 
 if __name__ == "__main__":
-    exit(main())
+    try:
+        main()
+        exit(0)
+    except Exception:
+        exit(1)
