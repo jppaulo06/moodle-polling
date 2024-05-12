@@ -9,7 +9,7 @@ import datetime
 
 
 # =============================================================================
-#                                   CONFIGS
+#                           CONFIGS AND CONSTANTS
 # =============================================================================
 
 load_dotenv()
@@ -40,7 +40,7 @@ def main():
         except KeyboardInterrupt:
             break
         except Exception as e:
-            print_sad(f"Could not update infos: {e}")
+            print_sad(f"Could not update infos: {e}:\n{e.__class__}:\n{e.__traceback__.tb_frame}")
             raise e
         it += 1
     return it
@@ -51,7 +51,9 @@ def main():
 # =============================================================================
 
 def update(it):
-    last_obj = {}
+    if not hasattr(update, "last_obj"):
+        update.last_obj = {}
+
     response = requests.get(URL, cookies=COOKIES)
 
     if response.status_code != 200:
@@ -61,8 +63,8 @@ def update(it):
     participant_count = int(soup.find("p", attrs={"data-region": "participant-count"}).text.split()[0])
     table = soup.find("table", attrs={"id": "participants"})
 
-    obj = get_new_obj(table, participant_count, last_obj)
-    last_obj = obj
+    obj = get_new_obj(table, participant_count, update.last_obj)
+    update.last_obj = obj.copy()
     save_as_json(obj, it)
 
 
@@ -84,7 +86,7 @@ def get_participant_obj(name, last_login, last_obj):
     participant_obj = {}
     participant_obj["last_login"] = last_login
     if name in last_obj and last_obj[name]["last_login"] > last_login:
-        print_success(f"Participant {name} just logged in!")
+        print_happy(f"Participant {name} just logged in!")
         participant_obj["updated"] = True
     else:
         participant_obj["updated"] = False
@@ -119,25 +121,16 @@ def string_time_to_seconds(time):
     return seconds
 
 
-def print_info(*args, **kwargs):
-    print(COLOR_BLUE, end='')
-    print(f"[INFO]", end=' ')
-    print(*args, **kwargs)
-    print(COLOR_END, end='')
+def print_info(message, *args, **kwargs):
+    print(COLOR_BLUE + "[INFO] " + message + COLOR_END, *args, **kwargs, flush=True)
 
 
-def print_sad(*args, **kwargs):
-    print(COLOR_RED, end='')
-    print("[SAD :(]", end=' ')
-    print(*args, file=sys.stderr, **kwargs)
-    print(COLOR_END, end='')
+def print_sad(message, *args, **kwargs):
+    print(COLOR_RED + "[SAD :(] " + message + COLOR_END, *args, **kwargs, flush=True, file=sys.stderr)
 
 
-def print_happy(*args, **kwargs):
-    print(COLOR_GREEN, end='')
-    print("[HAPPY :D]", end=' ')
-    print(*args, **kwargs)
-    print(COLOR_END, end='')
+def print_happy(message, *args, **kwargs):
+    print(COLOR_GREEN + "[INFO] " + message + COLOR_END, *args, **kwargs, flush=True)
 
 
 if __name__ == "__main__":
