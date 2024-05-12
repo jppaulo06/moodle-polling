@@ -18,10 +18,12 @@ COURSE_ID = os.getenv("ID")
 DELTA_TIME = int(os.getenv("DELTA_TIME"))
 URL = f"https://edisciplinas.usp.br/user/index.php?page=0&perpage=5000&contextid=0&id={COURSE_ID}&newcoue"
 OUTPUT_DIR = os.getenv("OUTPUT_DIR")
+DEBUG = os.getenv("DEBUG") == "True"
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 COLOR_GREEN = "\033[92m"
 COLOR_RED = "\033[91m"
+COLOR_YELLOW = "\033[93m"
 COLOR_END = "\033[0m"
 COLOR_BLUE = "\033[94m"
 
@@ -34,7 +36,7 @@ def main():
     it = 0
     while True:
         try:
-            print_info(f"Updating: Iteration {it}")
+            print_debug(f"Updating: Iteration {it}")
             update(it)
             time.sleep(DELTA_TIME)
         except KeyboardInterrupt:
@@ -70,17 +72,24 @@ def update(it):
 
 def get_new_obj(table, participant_count, last_obj):
     obj = {}
+    someone_logged_in = False
     for participant in range(1, participant_count):
         name_tag = table.find("th", attrs = {"id": f"user-index-participants-117430_r{participant}_c1"})
-        if name_tag.span is not None:
-            name_tag.span.decompose()
         last_login_tag = table.find("td", attrs = {"id": f"user-index-participants-117430_r{participant}_c4"})
         if name_tag is not None:
+            if name_tag.span is not None:
+                name_tag.span.decompose()
             participant_name = name_tag.text
             last_login = string_time_to_seconds(last_login_tag.text)
             obj[participant_name] = get_participant_obj(participant_name, last_login, last_obj)
+            if obj[participant_name]["logged_in"]:
+                someone_logged_in |= True
         else:
             raise Exception(f"[ERROR] Participant {participant} not found!")
+
+    if not someone_logged_in:
+        print_a_bit_sad_debug("No one logged in...")
+
     return obj
 
 
@@ -123,8 +132,14 @@ def string_time_to_seconds(time):
     return seconds
 
 
-def print_info(message, *args, **kwargs):
-    print(COLOR_BLUE + "[INFO] " + message + COLOR_END, *args, **kwargs, flush=True)
+def print_debug(message, *args, **kwargs):
+    if DEBUG:
+        print(COLOR_BLUE + "[INFO] " + message + COLOR_END, *args, **kwargs, flush=True)
+
+
+def print_a_bit_sad_debug(message, *args, **kwargs):
+    if DEBUG:
+        print(COLOR_YELLOW + "[BIT SAD INFO :/] " + message + COLOR_END, *args, **kwargs, flush=True, file=sys.stderr)
 
 
 def print_sad(message, *args, **kwargs):
