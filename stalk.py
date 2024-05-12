@@ -12,7 +12,8 @@ import json
 
 load_dotenv()
 COOKIES = {"MoodleSessionedisciplinas": os.getenv("MOODLE_SESSION")}
-COURSE_ID = os.getenv("COURSE_ID")
+COURSE_ID = os.getenv("ID")
+DELTA_TIME = int(os.getenv("DELTA_TIME"))
 URL = f"https://edisciplinas.usp.br/user/index.php?page=0&perpage=5000&contextid=0&id={COURSE_ID}&newcourse"
 if not os.path.exists("output"):
     os.makedirs("output")
@@ -26,11 +27,12 @@ def main() -> int:
     it = 0
     while True:
         try:
+            print(f"[INFO] Updating: Iteration {it}")
             update(it)
         except Exception as e:
-            print(f"[ERROR] {e}")
+            print(f"[ERROR] Could not update infos: {e}")
             return 1
-        time.sleep(5)
+        time.sleep(DELTA_TIME)
         it += 1
 
 
@@ -40,12 +42,15 @@ def main() -> int:
 
 def update(it):
     response = requests.get(URL, cookies=COOKIES)
+
+    if response.status_code != 200:
+        raise Exception(f"[ERROR] Status code {response.status_code} != 200")
+
     soup = BeautifulSoup(response.content, 'html5lib')
     participant_count = int(soup.find("p", attrs={"data-region": "participant-count"}).text.split()[0])
     table = soup.find("table", attrs={"id": "participants"})
 
     obj = get_new_obj(table, participant_count)
-    print(obj)
     save_as_json(obj, it)
 
 
@@ -58,7 +63,7 @@ def get_new_obj(table, participant_count):
             participant_name = name_tag.text[2:]
             last_login = last_login_tag.text
             seconds = string_time_to_seconds(last_login)
-            obj.append({"name": participant_name, "seconds": seconds})
+            obj.append({"name": participant_name, "last_login": seconds})
         else:
             raise Exception(f"[ERROR] Participant {participant} not found!")
     return obj
@@ -66,13 +71,12 @@ def get_new_obj(table, participant_count):
 
 def save_as_json(obj, it):
     with open(f"output/moodle_polling_{it}.json", "w") as outfile:
-        str_ = json.dump(obj, outfile, indent=4, separators=(',', ': '), ensure_ascii=False)
+        json.dump(obj, outfile, indent=4, ensure_ascii=False)
 
 
 def string_time_to_seconds(time: str) -> int:
     seconds = 0
     num = 0
-
     for piece in time.split():
         if piece.isnumeric():
             num = int(piece)
@@ -85,7 +89,6 @@ def string_time_to_seconds(time: str) -> int:
                 seconds += num * 60
             elif piece == "segundos":
                 seconds += num
-
     return seconds
 
 
