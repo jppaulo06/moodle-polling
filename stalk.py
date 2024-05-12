@@ -1,11 +1,11 @@
 import requests
-from bs4 import BeautifulSoup
 import os
 import sys
-from dotenv import load_dotenv
 import time
 import json
 import datetime
+from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 
 
 # =============================================================================
@@ -72,9 +72,11 @@ def get_new_obj(table, participant_count, last_obj):
     obj = {}
     for participant in range(1, participant_count):
         name_tag = table.find("th", attrs = {"id": f"user-index-participants-117430_r{participant}_c1"})
+        if name_tag.span is not None:
+            name_tag.span.decompose()
         last_login_tag = table.find("td", attrs = {"id": f"user-index-participants-117430_r{participant}_c4"})
         if name_tag is not None:
-            participant_name = name_tag.text[2:]
+            participant_name = name_tag.text
             last_login = string_time_to_seconds(last_login_tag.text)
             obj[participant_name] = get_participant_obj(participant_name, last_login, last_obj)
         else:
@@ -87,9 +89,9 @@ def get_participant_obj(name, last_login, last_obj):
     participant_obj["last_login"] = last_login
     if name in last_obj and last_obj[name]["last_login"] > last_login:
         print_happy(f"Participant {name} just logged in!")
-        participant_obj["updated"] = True
+        participant_obj["logged_in"] = True
     else:
-        participant_obj["updated"] = False
+        participant_obj["logged_in"] = False
     return participant_obj
 
 
@@ -130,7 +132,7 @@ def print_sad(message, *args, **kwargs):
 
 
 def print_happy(message, *args, **kwargs):
-    print(COLOR_GREEN + "[INFO] " + message + COLOR_END, *args, **kwargs, flush=True)
+    print(COLOR_GREEN + "[HAPPY :D] " + message + COLOR_END, *args, **kwargs, flush=True)
 
 
 if __name__ == "__main__":
